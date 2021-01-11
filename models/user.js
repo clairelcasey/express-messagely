@@ -16,18 +16,19 @@ class User {
    */
 
   static async register({ username, password, first_name, last_name, phone }) {
-    const hashedPassword = await bcrypt.hash(
-      password, BCRYPT_WORK_FACTOR);
-
-    const result = await db.query(
-      `INSERT INTO users (username, password, first_name, last_name, phone, join_at, last_login_at)
-           VALUES ($1, $2, $3, $4, $5, current_timestamp, current_timestamp)
-           RETURNING username, password, first_name, last_name, phone`,
-      [username, hashedPassword, first_name, last_name, phone]);
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
+    let result;
+    try {
+      result = await db.query(
+        `INSERT INTO users (username, password, first_name, last_name, phone, join_at, last_login_at)
+             VALUES ($1, $2, $3, $4, $5, current_timestamp, current_timestamp)
+             RETURNING username, password, first_name, last_name, phone`,
+        [username, hashedPassword, first_name, last_name, phone]);
+    } catch(err) {
+      throw new BadRequestError(`Unable to add ${username} to database`);
+    }
 
     const user = result.rows[0];
-    if (user === undefined) throw new BadRequestError();
-
     return user;
   }
 
@@ -39,12 +40,16 @@ class User {
       [username]);
     let user = result.rows[0];
 
-    if (user) {
-      if (await bcrypt.compare(password, user.password) === true) {
-        return true;
-      }
-    }
-    return false;
+    // alternate way of returning
+    return Boolean(user) && 
+           await bcrypt.compare(password, user.password) === true;
+
+    // if (user) {
+    //   if (await bcrypt.compare(password, user.password) === true) {
+    //     return true;
+    //   }
+    // }
+    // return false;
   }
 
   /** Update last_login_at for user */
@@ -122,20 +127,20 @@ class User {
              WHERE m.from_username = $1`,
       [username]
     );
-    
+
     const messages = mResults.rows;
     return messages.map(m => ({
-        id: m.id,
-        to_user: {
-          username: m.to_username,
-          first_name: m.to_first_name,
-          last_name: m.to_last_name,
-          phone: m.to_phone,
-        },
-        body: m.body,
-        sent_at: m.sent_at,
-        read_at: m.read_at,
-      }
+      id: m.id,
+      to_user: {
+        username: m.to_username,
+        first_name: m.to_first_name,
+        last_name: m.to_last_name,
+        phone: m.to_phone,
+      },
+      body: m.body,
+      sent_at: m.sent_at,
+      read_at: m.read_at,
+    }
     ));
   }
 
