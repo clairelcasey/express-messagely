@@ -3,13 +3,8 @@
 const Router = require("express").Router;
 const router = new Router();
 const Message = require("../models/message");
-const User = require("../models/user");
 
-const {
-  authenticateJWT,
-  ensureLoggedIn,
-  ensureCorrectUser,
-} = require("../middleware/auth");
+const { ensureLoggedIn } = require("../middleware/auth");
 const { UnauthorizedError } = require("../expressError");
 
 /** GET /:id - get detail of message.
