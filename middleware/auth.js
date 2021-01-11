@@ -39,6 +39,7 @@ function ensureLoggedIn(req, res, next) {
 /** Middleware: Requires user is user for route. */
 
 function ensureCorrectUser(req, res, next) {
+
   try {
     if (!res.locals.user ||
         res.locals.user.username !== req.params.username) {
@@ -50,6 +51,23 @@ function ensureCorrectUser(req, res, next) {
     return next(err);
   }
 }
+
+/** Middleware: requires user received or wrote the message at /:id */  
+
+// function ensureUserInMessage(req, res, next) {
+//     try {
+//       if (
+//         !res.locals.user ||
+//         res.locals.user.username !== req.params.username
+//       ) {
+//         throw new UnauthorizedError();
+//       } else {
+//         return next();
+//       }
+//     } catch (err) {
+//       return next(err);
+//     }
+// }
 
 
 module.exports = {
