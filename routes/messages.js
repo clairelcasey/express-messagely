@@ -22,9 +22,11 @@ const { UnauthorizedError } = require("../expressError");
 
 router.get("/:id", ensureLoggedIn, async function (req, res, next) {
   const message = await Message.get(req.params.id);
+  const currUsername = res.locals.user.username;
+
   if (
-    message.to_user.username === res.locals.user.username ||
-    message.from_user.username === res.locals.user.username
+    message.to_user.username === currUsername||
+    message.from_user.username === currUsername
   ) {
     return res.json({ message });
   }
@@ -60,7 +62,7 @@ router.post("/:id/read", ensureLoggedIn, async function (req, res, next) {
   const message = await Message.get(id);
 
   if (message.to_user.username === res.locals.user.username) {
-    let messageRead = await Message.markRead(id);
+    const messageRead = await Message.markRead(id);
     return res.json({ message: messageRead });
   }
 

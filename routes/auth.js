@@ -13,7 +13,10 @@ const jwt = require("jsonwebtoken");
 router.post("/login", async function (req, res, next) {
   const { username, password } = req.body;
   if (await User.authenticate(username, password)) {
-    let token = jwt.sign({ username, iat: Math.floor(Date.now() / 1000) }, SECRET_KEY);
+    // iat: Math.floor(Date.now() / 1000)
+    // TODO: update user login timestamp on login
+    // JWT creates an iat automatically for us
+    let token = jwt.sign({ username }, SECRET_KEY);
     return res.json({ token });
   }
   throw new BadRequestError("Invalid user/password");
@@ -25,10 +28,9 @@ router.post("/login", async function (req, res, next) {
  */
 
 router.post("/register", async function (req, res, next) {
-  const user = await User.register(req.body);
-  let token = jwt.sign(
-    { username: user.username, iat: Math.floor(Date.now() / 1000) }
-    , SECRET_KEY);
+  const { username } = await User.register(req.body);
+  // TODO: update user login timestamp on login
+  let token = jwt.sign({ username }, SECRET_KEY);
   return res.json({ token });
 });
 

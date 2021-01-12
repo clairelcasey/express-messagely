@@ -17,7 +17,8 @@
     "express-cors": "^0.0.3",
     "jsonwebtoken": "^8.5.1",
     "pg": "^8.2.1",
-    "supertest": "^5.0.0-0"
+    "supertest": "^5.0.0-0",
+    "twilio": "^3.54.2"
   },
   "keywords": [],
   "description": ""
