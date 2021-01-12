@@ -203,13 +203,13 @@ class User {
   static async updatePasswordCode(username) {
     const randCode = String(Math.floor(100000 + Math.random() * 900000));
     const hashedPWCode = await bcrypt.hash(randCode, BCRYPT_WORK_FACTOR);
-
+    
     const result = await db.query(
       `UPDATE users
         SET password_code = $1,
             last_generated_at = current_timestamp
           WHERE username = $2
-          RETURNING username, password_code, last_generated_at`,
+          RETURNING username, password_code, last_generated_at, phone`,
       [hashedPWCode, username]
     );
 
@@ -227,16 +227,51 @@ class User {
    **/
 
   static async sendPasswordCode(user) {
-    const { actual_password_code, password_code, last_generated_at } = user;
+    const { actual_password_code, phone } = user;
 
     const message = await client.messages
       .create({
-        body: `Your new password is: ${actual_password_code}`,
+        body: `Your new password code is: ${actual_password_code}`,
         from: TWILIO_NUM,
         to: TO_NUM
       });
     console.log("Sent message to user: ", actual_password_code);
   }
+
+  /** 
+   * AuthenticatePasswordCode: is username/password_code valid? Returns boolean.
+   */
+
+  static async authenticatePasswordCode(username, password_code) {
+    const result = await db.query(
+      "SELECT password_code FROM users WHERE username = $1",
+      [username]
+    );
+    let user = result.rows[0];
+
+    return (
+      Boolean(user) && 
+      (await bcrypt.compare(password_code, user.password_code)) === true
+    );
+  }
+
+    /** Update password for user */
+
+    static async updatePassword(username, password) {
+      const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
+      const result = await db.query(
+        `UPDATE users
+         SET password = $1
+           WHERE username = $2
+           RETURNING username`,
+        [hashedPassword, username]
+      );
+  
+      const user = result.rows[0];
+      if (user === undefined) {
+        throw new NotFoundError(`no user found with username: ${username}`);
+      }
+    }
 
 }
 

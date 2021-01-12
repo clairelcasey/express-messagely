@@ -36,17 +36,30 @@ router.post("/register", async function (req, res, next) {
 /** POST /forgot-password: { username } => 
  * { message: "Check your phone for a reset code" } 
  **/
-
- router.post("/forgot-password", async function (req, res, next) {
-
+// NOTE: could make a jwt out of reset code with expiration date.
+// Can validate with jwt -- wouldn't need to store pwd in the database
+router.post("/forgot-password", async function (req, res, next) {
   const { username } = req.body;
   const user = await User.updatePasswordCode(username);
   await User.sendPasswordCode(user);
+  // Add url on where to visit
   return res.json({ message: "Check your phone for a reset code" });
 });
 
-/** POST /update-password: { username } => 
- * 
+/** POST /update-password: { username, password_code, password } => 
+ *  { token }
  **/
+
+router.post("/update-password", async function (req, res, next) {
+  const { username, password_code, password } = req.body;
+  
+  if (await User.authenticatePasswordCode(username, password_code)) {
+    await User.updatePassword(username, password);
+    let token = jwt.sign({ username }, SECRET_KEY);
+    return res.json({ token });
+  }
+
+  throw new BadRequestError("Invalid user/password_code");
+});
 
 module.exports = router;
