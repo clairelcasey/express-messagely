@@ -4,6 +4,9 @@
 
 const { NotFoundError } = require("../expressError");
 const db = require("../db");
+const { ACCOUNT_SID, AUTH_TOKEN, TWILIO_NUM, TO_NUM} = require("../config");
+const client = require('twilio')(ACCOUNT_SID, AUTH_TOKEN);
+
 
 /** Message on the site. */
 
@@ -42,6 +45,7 @@ class Message {
 
     return message;
   }
+
 
   /** Get: get message by id
    *
@@ -93,6 +97,21 @@ class Message {
       sent_at: m.sent_at,
       read_at: m.read_at,
     };
+  }
+
+  /** Send a text message  
+   *    takes in {id, from_user, to_user, body, sent_at, read_at}
+   *    both to_user and from_user = {username, first_name, last_name, phone}
+  */
+
+  static async sendText({id, from_user, to_user, body, sent_at, read_at}) {
+    const message = await client.messages
+      .create({
+        body,
+        from: TWILIO_NUM,
+        to: TO_NUM
+      });
+    console.log('message sent!!', message);
   }
 }
 
