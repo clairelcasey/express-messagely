@@ -4,13 +4,21 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const { BadRequestError, NotFoundError } = require("../expressError");
-const { SECRET_KEY, BCRYPT_WORK_FACTOR } = require("../config");
+
 const db = require("../db");
+const { ACCOUNT_SID, 
+        AUTH_TOKEN, 
+        TWILIO_NUM, 
+        TO_NUM, 
+        SECRET_KEY, 
+        BCRYPT_WORK_FACTOR
+      } = require("../config");
+
+const client = require('twilio')(ACCOUNT_SID, AUTH_TOKEN);
 
 /** User of the site. */
 
 class User {
-
   /** Register new user. Returns
    *    {username, password, first_name, last_name, phone}
    */
@@ -23,8 +31,9 @@ class User {
         `INSERT INTO users (username, password, first_name, last_name, phone, join_at, last_login_at)
              VALUES ($1, $2, $3, $4, $5, current_timestamp, current_timestamp)
              RETURNING username, password, first_name, last_name, phone`,
-        [username, hashedPassword, first_name, last_name, phone]);
-    } catch(err) {
+        [username, hashedPassword, first_name, last_name, phone]
+      );
+    } catch (err) {
       throw new BadRequestError(`Unable to add ${username} to database`);
     }
 
@@ -37,12 +46,14 @@ class User {
   static async authenticate(username, password) {
     const result = await db.query(
       "SELECT password FROM users WHERE username = $1",
-      [username]);
+      [username]
+    );
     let user = result.rows[0];
 
     // alternate way of returning
-    return Boolean(user) && 
-           await bcrypt.compare(password, user.password) === true;
+    return (
+      Boolean(user) && (await bcrypt.compare(password, user.password)) === true
+    );
 
     // if (user) {
     //   if (await bcrypt.compare(password, user.password) === true) {
@@ -65,8 +76,8 @@ class User {
 
     const user = result.rows[0];
     if (user === undefined) {
-      throw new NotFoundError(`no user found with username: ${username}`)
-    };
+      throw new NotFoundError(`no user found with username: ${username}`);
+    }
   }
 
   /** All: basic info on all users:
@@ -76,7 +87,7 @@ class User {
     const results = await db.query(
       `SELECT username, first_name, last_name
            FROM users
-           ORDER BY last_name, first_name`,
+           ORDER BY last_name, first_name`
     );
     return results.rows;
   }
@@ -95,12 +106,13 @@ class User {
       `SELECT username, first_name, last_name, phone, join_at, last_login_at
            FROM users
            WHERE username = $1`,
-      [username]);
+      [username]
+    );
 
     const user = results.rows[0];
     if (user === undefined) {
-      throw new NotFoundError(`no user found with username: ${username}`)
-    };
+      throw new NotFoundError(`no user found with username: ${username}`);
+    }
     return user;
   }
 
@@ -129,7 +141,7 @@ class User {
     );
 
     const messages = mResults.rows;
-    return messages.map(m => ({
+    return messages.map((m) => ({
       id: m.id,
       to_user: {
         username: m.to_username,
@@ -140,8 +152,7 @@ class User {
       body: m.body,
       sent_at: m.sent_at,
       read_at: m.read_at,
-    }
-    ));
+    }));
   }
 
   /** Return messages to this user.
@@ -182,7 +193,51 @@ class User {
       read_at: m.read_at,
     }));
   }
-}
 
+  /** 
+   * Updates password_code in users table with time it was generated,
+   * given a username
+   * returns user or throws NotFoundError 
+   **/  
+
+  static async updatePasswordCode(username) {
+    const randCode = String(Math.floor(100000 + Math.random() * 900000));
+    const hashedPWCode = await bcrypt.hash(randCode, BCRYPT_WORK_FACTOR);
+
+    const result = await db.query(
+      `UPDATE users
+        SET password_code = $1,
+            last_generated_at = current_timestamp
+          WHERE username = $2
+          RETURNING username, password_code, last_generated_at`,
+      [hashedPWCode, username]
+    );
+
+    const user = result.rows[0];
+    if (user === undefined)
+      throw new NotFoundError(`no user found with username: ${username}`);
+    
+    user.actual_password_code = randCode;
+    return user;
+  }
+
+  /**
+   * Method sends Twilio SMS message with 6 digit verification code
+   * for a user
+   **/
+
+  static async sendPasswordCode(user) {
+    const { actual_password_code, password_code, last_generated_at } = user;
+
+    const message = await client.messages
+      .create({
+        body: `Your new password is: ${actual_password_code}`,
+        from: TWILIO_NUM,
+        to: TO_NUM
+      });
+    console.log("Sent message to user: ", actual_password_code);
+  }
+
+}
 
 module.exports = User;
