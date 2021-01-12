@@ -13,9 +13,8 @@ const jwt = require("jsonwebtoken");
 router.post("/login", async function (req, res, next) {
   const { username, password } = req.body;
   if (await User.authenticate(username, password)) {
-    // iat: Math.floor(Date.now() / 1000)
-    // TODO: update user login timestamp on login
     // JWT creates an iat automatically for us
+    await updateLoginTimestamp(username);
     let token = jwt.sign({ username }, SECRET_KEY);
     return res.json({ token });
   }
@@ -29,7 +28,7 @@ router.post("/login", async function (req, res, next) {
 
 router.post("/register", async function (req, res, next) {
   const { username } = await User.register(req.body);
-  // TODO: update user login timestamp on login
+  await updateLoginTimestamp(username);
   let token = jwt.sign({ username }, SECRET_KEY);
   return res.json({ token });
 });
